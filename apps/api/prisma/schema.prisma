@@ -1,6 +1,6 @@
-// Minimal Prisma configuration foundation for Draftone Dashboard API.
-// Complete domain models (Organization, User, Client, Project, Task, Invoice, Asset, AuditLog)
-// will be defined in the dedicated database modeling step.
+// Draftone Dashboard — Production Prisma Schema
+// Authority: SDLC.md v1.0.0 & Prompt 05 Specifications
+// Architecture: Strict organization-level multi-tenant isolation
 
 generator client {
   provider = "prisma-client-js"
@@ -11,10 +11,376 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Minimal model to allow Prisma Client generation without premature business modeling
-model HealthCheck {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now()) @map("created_at")
+// ============================================================
+// ENUMS (Aligned with @draftone/shared)
+// ============================================================
 
-  @@map("_health_check")
+enum UserRole {
+  super_admin
+  admin
+  pm
+  creative
+  finance
+  viewer
+
+  @@map("user_role")
+}
+
+enum ClientStatus {
+  lead
+  active
+  on_hold
+  completed
+  churned
+
+  @@map("client_status")
+}
+
+enum ProjectStage {
+  brief
+  quotation
+  pre_production
+  shoot
+  post_production
+  review
+  delivery
+  invoiced
+  completed
+  cancelled
+
+  @@map("project_stage")
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  review
+  done
+
+  @@map("task_status")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+
+  @@map("task_priority")
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  partially_paid
+  paid
+  overdue
+  cancelled
+
+  @@map("invoice_status")
+}
+
+enum AssetStatus {
+  pending
+  approved
+  rejected
+
+  @@map("asset_status")
+}
+
+// ============================================================
+// CORE TENANT ROOT: Organization
+// ============================================================
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Tenant-owned entity collections (onDelete: Restrict prevents accidental cascade destruction)
+  users     User[]
+  clients   Client[]
+  projects  Project[]
+  tasks     Task[]
+  invoices  Invoice[]
+  assets    Asset[]
+  auditLogs AuditLog[]
+
+  @@map("organizations")
+}
+
+// ============================================================
+// TENANT IDENTITY: User
+// ============================================================
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  email          String    @db.VarChar(255)
+  passwordHash   String    @map("password_hash") @db.Text
+  fullName       String    @map("full_name") @db.VarChar(255)
+  role           UserRole  @default(viewer)
+  department     String?   @db.VarChar(100)
+  avatarUrl      String?   @map("avatar_url") @db.Text
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  // User assignments & authorship (scoped to same tenant)
+  managedClients  Client[]   @relation("ClientAssignedPm")
+  createdClients  Client[]   @relation("ClientCreator")
+  managedProjects Project[]  @relation("ProjectPm")
+  createdProjects Project[]  @relation("ProjectCreator")
+  assignedTasks   Task[]     @relation("TaskAssignee")
+  createdTasks    Task[]     @relation("TaskCreator")
+  createdInvoices Invoice[]  @relation("InvoiceCreator")
+  uploadedAssets  Asset[]    @relation("AssetUploader")
+  approvedAssets  Asset[]    @relation("AssetApprover")
+  auditLogs       AuditLog[] @relation("AuditLogActor")
+
+  // Uniqueness & Tenant Constraints
+  @@unique([organizationId, email])
+  @@unique([organizationId, id])
+  // Performance Indexes
+  @@index([organizationId])
+  @@index([organizationId, role])
+  @@index([organizationId, isActive])
+  @@map("users")
+}
+
+// ============================================================
+// CRM: Client
+// ============================================================
+
+model Client {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String       @db.VarChar(255)
+  industry       String?      @db.VarChar(100)
+  status         ClientStatus @default(lead)
+  assignedPmId   String?      @map("assigned_pm_id") @db.Uuid
+  website        String?      @db.Text
+  notes          String?      @db.Text
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Tenant-scoped composite foreign keys ensure PM and creator belong to the same organization
+  assignedPm   User?        @relation("ClientAssignedPm", fields: [organizationId, assignedPmId], references: [organizationId, id], onDelete: Restrict)
+  creator      User?        @relation("ClientCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
+  projects     Project[]
+  invoices     Invoice[]
+
+  // Composite unique constraint supporting composite foreign keys from children
+  @@unique([organizationId, id])
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, assignedPmId])
+  @@index([organizationId, createdAt])
+  @@map("clients")
+}
+
+// ============================================================
+// OPERATIONS: Project
+// ============================================================
+
+model Project {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  clientId       String       @map("client_id") @db.Uuid
+  name           String       @db.VarChar(255)
+  description    String?      @db.Text
+  stage          ProjectStage @default(brief)
+  pmId           String?      @map("pm_id") @db.Uuid
+  startDate      DateTime?    @map("start_date") @db.Date
+  dueDate        DateTime?    @map("due_date") @db.Date
+  budget         Decimal?     @db.Decimal(12, 2)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Composite foreign key guarantees project and client share the exact same organization
+  client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Restrict)
+  pm           User?        @relation("ProjectPm", fields: [organizationId, pmId], references: [organizationId, id], onDelete: Restrict)
+  creator      User?        @relation("ProjectCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
+  tasks        Task[]
+  invoices     Invoice[]
+  assets       Asset[]
+
+  // Composite unique constraint supporting composite foreign keys from Task, Asset, Invoice
+  @@unique([organizationId, id])
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, stage])
+  @@index([organizationId, clientId])
+  @@index([organizationId, pmId])
+  @@index([organizationId, createdAt])
+  @@map("projects")
+}
+
+// ============================================================
+// OPERATIONS: Task
+// ============================================================
+
+model Task {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  projectId      String       @map("project_id") @db.Uuid
+  parentTaskId   String?      @map("parent_task_id") @db.Uuid
+  title          String       @db.VarChar(500)
+  description    String?      @db.Text
+  status         TaskStatus   @default(todo)
+  priority       TaskPriority @default(medium)
+  assigneeId     String?      @map("assignee_id") @db.Uuid
+  dueDate        DateTime?    @map("due_date") @db.Date
+  estimatedHours Decimal?     @map("estimated_hours") @db.Decimal(5, 2)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Composite foreign key guarantees task and project belong to the same organization
+  project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Cascade)
+  parentTask   Task?        @relation("SubTasks", fields: [organizationId, parentTaskId], references: [organizationId, id], onDelete: Restrict)
+  subTasks     Task[]       @relation("SubTasks")
+  assignee     User?        @relation("TaskAssignee", fields: [organizationId, assigneeId], references: [organizationId, id], onDelete: Restrict)
+  creator      User?        @relation("TaskCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
+  assets       Asset[]
+
+  // Composite unique constraint supporting composite foreign keys from Asset
+  @@unique([organizationId, id])
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, priority])
+  @@index([organizationId, projectId])
+  @@index([organizationId, assigneeId])
+  @@index([organizationId, dueDate])
+  @@map("tasks")
+}
+
+// ============================================================
+// FINANCE: Invoice
+// ============================================================
+
+model Invoice {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  invoiceNumber  String        @map("invoice_number") @db.VarChar(50)
+  clientId       String        @map("client_id") @db.Uuid
+  projectId      String?       @map("project_id") @db.Uuid
+  status         InvoiceStatus @default(draft)
+  subtotal       Decimal       @default(0) @db.Decimal(12, 2)
+  taxPercent     Decimal       @default(18) @map("tax_percent") @db.Decimal(5, 2)
+  total          Decimal       @default(0) @db.Decimal(12, 2)
+  dueDate        DateTime?     @map("due_date") @db.Date
+  issuedDate     DateTime      @default(now()) @map("issued_date") @db.Date
+  createdBy      String?       @map("created_by") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Composite foreign key guarantees invoice and client share the same organization
+  client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Restrict)
+  // Composite foreign key ensures optional project link belongs to the same organization
+  project      Project?     @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict)
+  creator      User?        @relation("InvoiceCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
+
+  // Uniqueness & Tenant Constraints
+  @@unique([organizationId, invoiceNumber])
+  @@unique([organizationId, id])
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, clientId])
+  @@index([organizationId, dueDate])
+  @@index([organizationId, issuedDate])
+  @@map("invoices")
+}
+
+// ============================================================
+// ASSETS: Asset
+// ============================================================
+
+model Asset {
+  id              String      @id @default(uuid()) @db.Uuid
+  organizationId  String      @map("organization_id") @db.Uuid
+  projectId       String      @map("project_id") @db.Uuid
+  taskId          String?     @map("task_id") @db.Uuid
+  fileName        String      @map("file_name") @db.VarChar(255)
+  storageKey      String      @map("storage_key") @db.VarChar(500)
+  fileSize        Int         @map("file_size")
+  mimeType        String      @map("mime_type") @db.VarChar(100)
+  version         Int         @default(1)
+  status          AssetStatus @default(pending)
+  uploadedBy      String      @map("uploaded_by") @db.Uuid
+  approvalComment String?     @map("approval_comment") @db.Text
+  approvedBy      String?     @map("approved_by") @db.Uuid
+  approvedAt      DateTime?   @map("approved_at") @db.Timestamptz(6)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Composite foreign key ensures asset and project share the same organization
+  project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Cascade)
+  // Composite foreign key ensures optional task belongs to the same organization
+  task         Task?        @relation(fields: [organizationId, taskId], references: [organizationId, id], onDelete: Restrict)
+  uploader     User         @relation("AssetUploader", fields: [organizationId, uploadedBy], references: [organizationId, id], onDelete: Restrict)
+  approver     User?        @relation("AssetApprover", fields: [organizationId, approvedBy], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, projectId])
+  @@index([organizationId, status])
+  @@index([storageKey])
+  @@map("assets")
+}
+
+// ============================================================
+// AUDIT: AuditLog (Immutable)
+// ============================================================
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  action         String   @db.VarChar(100)
+  entityType     String   @map("entity_type") @db.VarChar(100)
+  entityId       String?  @map("entity_id") @db.Uuid
+  oldValues      Json?    @map("old_values")
+  newValues      Json?    @map("new_values")
+  ipAddress      String?  @map("ip_address") @db.VarChar(45)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  // Restrict on Organization: deleting an organization must NEVER silently wipe audit history
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user         User?        @relation("AuditLogActor", fields: [organizationId, userId], references: [organizationId, id], onDelete: Restrict)
+
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, userId])
+  @@map("audit_logs")
 }
