@@ -1,0 +1,12 @@
+// Minimal Prisma configuration foundation for Draftone Dashboard API.
+// Business domain models (User, Client, Project, Task, Invoice, Asset, AuditLog)
+// will be defined in the dedicated database schema step.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
