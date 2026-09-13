@@ -12,12 +12,12 @@ describe('API Foundation', () => {
     it('returns HTTP 200 with canonical success envelope', async () => {
       const res = await request(app).get('/api/v1/health');
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('data');
-      expect(res.body.data.status).toBe('ok');
-      expect(res.body.data.version).toBe('v1');
-      expect(typeof res.body.data.timestamp).toBe('string');
-      expect(typeof res.body.data.uptimeSeconds).toBe('number');
-      expect(res.body.message).toBe('API is healthy');
+      expect(res.body).toEqual({
+        data: {
+          status: 'ok',
+        },
+        message: 'API is healthy',
+      });
     });
   });
 
