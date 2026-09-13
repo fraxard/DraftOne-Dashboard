@@ -1,8 +1,12 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 // Load environment variables from .env if present
 dotenv.config();
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(currentDir, '../../.env') });
 
 const INSECURE_SECRET_VALUES = new Set([
   'secret',

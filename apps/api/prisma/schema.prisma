@@ -256,7 +256,7 @@ model Task {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   // Composite foreign key guarantees task and project belong to the same organization
   project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Cascade)
-  parentTask   Task?        @relation("SubTasks", fields: [organizationId, parentTaskId], references: [organizationId, id], onDelete: Restrict)
+  parentTask   Task?        @relation("SubTasks", fields: [organizationId, parentTaskId], references: [organizationId, id], onDelete: SetNull)
   subTasks     Task[]       @relation("SubTasks")
   assignee     User?        @relation("TaskAssignee", fields: [organizationId, assigneeId], references: [organizationId, id], onDelete: Restrict)
   creator      User?        @relation("TaskCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
@@ -300,7 +300,7 @@ model Invoice {
   // Composite foreign key guarantees invoice and client share the same organization
   client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Restrict)
   // Composite foreign key ensures optional project link belongs to the same organization
-  project      Project?     @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict)
+  project      Project?     @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: SetNull)
   creator      User?        @relation("InvoiceCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
 
   // Uniqueness & Tenant Constraints
@@ -343,7 +343,7 @@ model Asset {
   // Composite foreign key ensures asset and project share the same organization
   project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Cascade)
   // Composite foreign key ensures optional task belongs to the same organization
-  task         Task?        @relation(fields: [organizationId, taskId], references: [organizationId, id], onDelete: Restrict)
+  task         Task?        @relation(fields: [organizationId, taskId], references: [organizationId, id], onDelete: SetNull)
   uploader     User         @relation("AssetUploader", fields: [organizationId, uploadedBy], references: [organizationId, id], onDelete: Restrict)
   approver     User?        @relation("AssetApprover", fields: [organizationId, approvedBy], references: [organizationId, id], onDelete: Restrict)
 
