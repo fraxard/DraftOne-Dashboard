@@ -7,9 +7,9 @@ export interface ApiErrorDetail {
 }
 
 export interface ApiErrorPayload {
-  code: ApiErrorCode | string;
+  code: ApiErrorCode;
   message: string;
-  details?: ApiErrorDetail[] | unknown;
+  details?: ApiErrorDetail[];
 }
 
 export interface ApiSuccessResponse<T> {

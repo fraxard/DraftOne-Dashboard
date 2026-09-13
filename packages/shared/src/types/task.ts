@@ -1,4 +1,4 @@
-import type { Auditable, Identifiable, ISODateString, UUID } from './common.js';
+import type { Auditable, Identifiable, ISODateString, TenantScoped, UUID } from './common.js';
 
 export const TASK_STATUSES = {
   TODO: 'todo',
@@ -20,7 +20,7 @@ export const TASK_PRIORITIES = {
 export type TaskPriority = (typeof TASK_PRIORITIES)[keyof typeof TASK_PRIORITIES];
 export const ALL_TASK_PRIORITIES: readonly TaskPriority[] = Object.freeze(Object.values(TASK_PRIORITIES));
 
-export interface Task extends Identifiable, Auditable {
+export interface Task extends Identifiable, Auditable, TenantScoped {
   projectId: UUID;
   parentTaskId?: UUID | null;
   title: string;

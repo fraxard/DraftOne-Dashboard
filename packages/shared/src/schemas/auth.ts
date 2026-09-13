@@ -5,6 +5,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, { message: 'Password is required' }),
 });
 
-export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, { message: 'Refresh token is required' }).optional(),
+/**
+ * Validates the refresh token when read from secure httpOnly cookies.
+ * Refresh tokens MUST NEVER be sent or accepted via JSON request bodies.
+ */
+export const refreshTokenCookieSchema = z.object({
+  refreshToken: z.string().min(1, { message: 'Refresh token cookie is required' }),
 });

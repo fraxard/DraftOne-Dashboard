@@ -17,10 +17,9 @@ export interface Auditable extends Timestamped {
 }
 
 /**
- * Tenant scoping placeholder:
- * Contracts permit optional organizationId so that future multi-tenancy
- * can be introduced without breaking API client and shared interfaces.
+ * Strict tenant scoping contract:
+ * All tenant-owned domain entities MUST carry an organizationId.
  */
 export interface TenantScoped {
-  organizationId?: UUID | null;
+  organizationId: UUID;
 }
