@@ -18,7 +18,7 @@ healthRouter.get('/health', (_req: Request, res: Response) => {
       version: 'v1',
       uptimeSeconds: Math.floor(process.uptime()),
     },
-    message: 'Draftone API service is healthy',
+    message: 'API is healthy',
   };
 
   res.status(200).json(response);

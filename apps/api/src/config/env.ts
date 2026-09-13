@@ -34,6 +34,9 @@ export const rawEnvSchema = z
           .map((origin) => origin.trim())
           .filter(Boolean)
       ),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
     JWT_ACCESS_SECRET: z
       .string()
       .trim()

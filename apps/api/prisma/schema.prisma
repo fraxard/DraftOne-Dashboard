@@ -1,6 +1,6 @@
 // Minimal Prisma configuration foundation for Draftone Dashboard API.
-// Business domain models (User, Client, Project, Task, Invoice, Asset, AuditLog)
-// will be defined in the dedicated database schema step.
+// Complete domain models (Organization, User, Client, Project, Task, Invoice, Asset, AuditLog)
+// will be defined in the dedicated database modeling step.
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +9,12 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// Minimal model to allow Prisma Client generation without premature business modeling
+model HealthCheck {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("_health_check")
 }

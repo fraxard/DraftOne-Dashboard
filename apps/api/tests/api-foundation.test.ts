@@ -17,13 +17,13 @@ describe('API Foundation', () => {
       expect(res.body.data.version).toBe('v1');
       expect(typeof res.body.data.timestamp).toBe('string');
       expect(typeof res.body.data.uptimeSeconds).toBe('number');
-      expect(res.body.message).toBe('Draftone API service is healthy');
+      expect(res.body.message).toBe('API is healthy');
     });
   });
 
   describe('Unknown Routes (404 Handling)', () => {
     it('returns HTTP 404 with canonical error envelope', async () => {
-      const res = await request(app).get('/api/v1/non-existent-route');
+      const res = await request(app).get('/api/v1/does-not-exist');
       expect(res.status).toBe(404);
       expect(res.body).toHaveProperty('error');
       expect(res.body.error.code).toBe(API_ERROR_CODES.NOT_FOUND);
@@ -107,11 +107,13 @@ describe('API Foundation', () => {
         PORT: '4000',
         DATABASE_URL: 'postgresql://prod_user:strong_password@prod_host:5432/draftone_prod',
         CORS_ORIGINS: 'https://dashboard.draftone.in',
+        LOG_LEVEL: 'info',
         JWT_ACCESS_SECRET: 'a_very_secure_production_access_secret_32_chars_long',
         JWT_REFRESH_SECRET: 'a_very_secure_production_refresh_secret_32_chars_long',
       });
       expect(validProdEnv.NODE_ENV).toBe('production');
       expect(validProdEnv.CORS_ORIGINS).toEqual(['https://dashboard.draftone.in']);
+      expect(validProdEnv.LOG_LEVEL).toBe('info');
     });
   });
 });

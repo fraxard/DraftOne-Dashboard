@@ -53,14 +53,17 @@ export function errorHandler(
     message = 'Request payload exceeds the maximum allowed limit';
   }
 
-  logger.error(err instanceof Error ? err.message : 'Unknown server error', {
-    requestId: req.id,
-    method: req.method,
-    path: req.originalUrl,
-    statusCode,
-    errorCode: code,
-    error: err,
-  });
+  logger.error(
+    {
+      requestId: req.id,
+      method: req.method,
+      path: req.originalUrl,
+      statusCode,
+      errorCode: code,
+      err,
+    },
+    err instanceof Error ? err.message : 'Unknown server error'
+  );
 
   const responseBody: ApiErrorResponse = {
     error: {
