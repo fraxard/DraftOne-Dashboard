@@ -1,4 +1,4 @@
-import express, { type Application } from 'express';
+import express, { type Application, type Router } from 'express';
 import {
   configureBodyParsers,
   configureCookieParser,
@@ -9,8 +9,9 @@ import { requestLogger } from './middleware/request-logger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { healthRouter } from './routes/health.routes.js';
+import { authRouter } from './routes/auth.routes.js';
 
-export function createApp(): Application {
+export function createApp(testRouter?: Router): Application {
   const app = express();
 
   // 1. Security HTTP headers
@@ -30,6 +31,11 @@ export function createApp(): Application {
 
   // 6. Versioned API routes
   app.use('/api/v1', healthRouter);
+  app.use('/api/v1/auth', authRouter);
+
+  if (testRouter) {
+    app.use('/api/v1/test', testRouter);
+  }
 
   // 7. Route not found handler
   app.use(notFoundHandler);

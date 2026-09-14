@@ -107,6 +107,7 @@ model Organization {
   invoices  Invoice[]
   assets    Asset[]
   auditLogs AuditLog[]
+  sessions  Session[]
 
   @@map("organizations")
 }
@@ -143,6 +144,7 @@ model User {
   uploadedAssets  Asset[]    @relation("AssetUploader")
   approvedAssets  Asset[]    @relation("AssetApprover")
   auditLogs       AuditLog[] @relation("AuditLogActor")
+  sessions        Session[]
 
   // Uniqueness & Tenant Constraints
   @@unique([organizationId, email])
@@ -383,4 +385,29 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([organizationId, userId])
   @@map("audit_logs")
+}
+
+// ============================================================
+// AUTH: Session (Tenant-Scoped Session & Refresh State)
+// ============================================================
+
+model Session {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  tokenHash      String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastActiveAt   DateTime  @default(now()) @map("last_active_at") @db.Timestamptz(6)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  userAgent      String?   @map("user_agent") @db.Text
+  ipAddress      String?   @map("ip_address") @db.VarChar(45)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
 }
