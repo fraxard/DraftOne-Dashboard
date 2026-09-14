@@ -25,6 +25,8 @@ export interface Project extends Identifiable, Auditable, TenantScoped {
   startDate?: ISODateString | null;
   dueDate?: ISODateString | null;
   budget?: number | null;
+  notes?: string | null;
+  members?: ProjectMember[];
 }
 
 export interface CreateProjectInput {
@@ -36,6 +38,7 @@ export interface CreateProjectInput {
   startDate?: ISODateString | null;
   dueDate?: ISODateString | null;
   budget?: number | null;
+  notes?: string | null;
 }
 
 export interface UpdateProjectInput {
@@ -46,4 +49,21 @@ export interface UpdateProjectInput {
   startDate?: ISODateString | null;
   dueDate?: ISODateString | null;
   budget?: number | null;
+  notes?: string | null;
+}
+
+export interface ProjectMember extends Identifiable {
+  projectId: UUID;
+  userId: UUID;
+  role?: string | null;
+  joinedAt: string;
+}
+
+export interface CreateProjectMemberInput {
+  userId: UUID;
+  role?: string | null;
+}
+
+export interface UpdateProjectMemberInput {
+  role?: string | null;
 }

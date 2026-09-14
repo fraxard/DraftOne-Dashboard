@@ -109,6 +109,7 @@ model Organization {
   auditLogs      AuditLog[]
   sessions       Session[]
   clientContacts ClientContact[]
+  projectMembers ProjectMember[]
 
   @@map("organizations")
 }
@@ -135,17 +136,18 @@ model User {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   // User assignments & authorship (scoped to same tenant)
-  managedClients  Client[]   @relation("ClientAssignedPm")
-  createdClients  Client[]   @relation("ClientCreator")
-  managedProjects Project[]  @relation("ProjectPm")
-  createdProjects Project[]  @relation("ProjectCreator")
-  assignedTasks   Task[]     @relation("TaskAssignee")
-  createdTasks    Task[]     @relation("TaskCreator")
-  createdInvoices Invoice[]  @relation("InvoiceCreator")
-  uploadedAssets  Asset[]    @relation("AssetUploader")
-  approvedAssets  Asset[]    @relation("AssetApprover")
-  auditLogs       AuditLog[] @relation("AuditLogActor")
-  sessions        Session[]
+  managedClients     Client[]        @relation("ClientAssignedPm")
+  createdClients     Client[]        @relation("ClientCreator")
+  managedProjects    Project[]       @relation("ProjectPm")
+  createdProjects    Project[]       @relation("ProjectCreator")
+  assignedTasks      Task[]          @relation("TaskAssignee")
+  createdTasks       Task[]          @relation("TaskCreator")
+  createdInvoices    Invoice[]       @relation("InvoiceCreator")
+  uploadedAssets     Asset[]         @relation("AssetUploader")
+  approvedAssets     Asset[]         @relation("AssetApprover")
+  auditLogs          AuditLog[]      @relation("AuditLogActor")
+  sessions           Session[]
+  projectMemberships ProjectMember[]
 
   // Uniqueness & Tenant Constraints
   @@unique([organizationId, email])
@@ -241,20 +243,22 @@ model Project {
   startDate      DateTime?    @map("start_date") @db.Date
   dueDate        DateTime?    @map("due_date") @db.Date
   budget         Decimal?     @db.Decimal(12, 2)
+  notes          String?      @db.Text
   createdBy      String?      @map("created_by") @db.Uuid
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   // Composite foreign key guarantees project and client share the exact same organization
-  client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Restrict)
-  pm           User?        @relation("ProjectPm", fields: [organizationId, pmId], references: [organizationId, id], onDelete: Restrict)
-  creator      User?        @relation("ProjectCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
+  client       Client          @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Restrict)
+  pm           User?           @relation("ProjectPm", fields: [organizationId, pmId], references: [organizationId, id], onDelete: Restrict)
+  creator      User?           @relation("ProjectCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
   tasks        Task[]
   invoices     Invoice[]
   assets       Asset[]
+  members      ProjectMember[]
 
   // Composite unique constraint supporting composite foreign keys from Task, Asset, Invoice
   @@unique([organizationId, id])
@@ -264,7 +268,40 @@ model Project {
   @@index([organizationId, clientId])
   @@index([organizationId, pmId])
   @@index([organizationId, createdAt])
+  @@index([organizationId, deletedAt])
   @@map("projects")
+}
+
+// ============================================================
+// OPERATIONS: ProjectMember (Team Assignment)
+// ============================================================
+
+model ProjectMember {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  projectId      String    @map("project_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  role           String?   @db.VarChar(50)
+  joinedAt       DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Composite foreign key guarantees project and membership share the same organization
+  project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Cascade)
+  // Composite foreign key guarantees assigned user belongs to the same organization
+  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Restrict)
+
+  // Composite unique constraint
+  @@unique([organizationId, id])
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, projectId])
+  @@index([organizationId, userId])
+  @@index([organizationId, deletedAt])
+  @@map("project_members")
 }
 
 // ============================================================

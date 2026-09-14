@@ -11,6 +11,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import { healthRouter } from './routes/health.routes.js';
 import { authRouter } from './routes/auth.routes.js';
 import { clientsRouter } from './clients/clients.routes.js';
+import { projectsRouter } from './projects/projects.routes.js';
 
 export function createApp(testRouter?: Router): Application {
   const app = express();
@@ -34,6 +35,7 @@ export function createApp(testRouter?: Router): Application {
   app.use('/api/v1', healthRouter);
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1/clients', clientsRouter);
+  app.use('/api/v1/projects', projectsRouter);
 
   if (testRouter) {
     app.use('/api/v1/test', testRouter);
