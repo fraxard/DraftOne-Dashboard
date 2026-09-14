@@ -20,5 +20,17 @@ export const updateClientSchema = createClientSchema.partial();
 export const clientQuerySchema = cursorPaginationSchema.extend({
   status: clientStatusSchema.optional(),
   assignedPmId: uuidSchema.optional(),
+  industry: z.string().trim().optional(),
   search: z.string().trim().optional(),
+  page: z.coerce.number().int().positive().optional(),
 });
+
+export const createClientContactSchema = z.object({
+  name: z.string().trim().min(1, { message: 'Contact name is required' }).max(255),
+  email: z.string().trim().email({ message: 'Invalid email address' }).optional().nullable().or(z.literal('')),
+  phone: z.string().trim().max(50).optional().nullable(),
+  designation: z.string().trim().max(100).optional().nullable(),
+  isPrimary: z.boolean().optional().default(false),
+});
+
+export const updateClientContactSchema = createClientContactSchema.partial();

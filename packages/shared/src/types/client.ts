@@ -47,3 +47,19 @@ export interface UpdateClientInput {
   website?: string | null;
   notes?: string | null;
 }
+
+export interface CreateClientContactInput {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  designation?: string | null;
+  isPrimary?: boolean;
+}
+
+export interface UpdateClientContactInput {
+  name?: string;
+  email?: string | null;
+  phone?: string | null;
+  designation?: string | null;
+  isPrimary?: boolean;
+}

@@ -100,14 +100,15 @@ model Organization {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Tenant-owned entity collections (onDelete: Restrict prevents accidental cascade destruction)
-  users     User[]
-  clients   Client[]
-  projects  Project[]
-  tasks     Task[]
-  invoices  Invoice[]
-  assets    Asset[]
-  auditLogs AuditLog[]
-  sessions  Session[]
+  users          User[]
+  clients        Client[]
+  projects       Project[]
+  tasks          Task[]
+  invoices       Invoice[]
+  assets         Asset[]
+  auditLogs      AuditLog[]
+  sessions       Session[]
+  clientContacts ClientContact[]
 
   @@map("organizations")
 }
@@ -175,12 +176,13 @@ model Client {
   deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   // Tenant-scoped composite foreign keys ensure PM and creator belong to the same organization
-  assignedPm   User?        @relation("ClientAssignedPm", fields: [organizationId, assignedPmId], references: [organizationId, id], onDelete: Restrict)
-  creator      User?        @relation("ClientCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
+  assignedPm   User?           @relation("ClientAssignedPm", fields: [organizationId, assignedPmId], references: [organizationId, id], onDelete: Restrict)
+  creator      User?           @relation("ClientCreator", fields: [organizationId, createdBy], references: [organizationId, id], onDelete: Restrict)
   projects     Project[]
   invoices     Invoice[]
+  contacts     ClientContact[]
 
   // Composite unique constraint supporting composite foreign keys from children
   @@unique([organizationId, id])
@@ -189,7 +191,39 @@ model Client {
   @@index([organizationId, status])
   @@index([organizationId, assignedPmId])
   @@index([organizationId, createdAt])
+  @@index([organizationId, deletedAt])
   @@map("clients")
+}
+
+// ============================================================
+// CRM: ClientContact
+// ============================================================
+
+model ClientContact {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  clientId       String    @map("client_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  email          String?   @db.VarChar(255)
+  phone          String?   @db.VarChar(50)
+  designation    String?   @db.VarChar(100)
+  isPrimary      Boolean   @default(false) @map("is_primary")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // Tenant-scoped composite foreign key guarantees contact and client share the exact same organization
+  client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Cascade)
+
+  // Composite unique constraint
+  @@unique([organizationId, id])
+  // Indexes
+  @@index([organizationId])
+  @@index([organizationId, clientId])
+  @@index([organizationId, deletedAt])
+  @@map("client_contacts")
 }
 
 // ============================================================

@@ -11,6 +11,10 @@ export interface CursorPaginationMeta {
   hasMore: boolean;
   limit: number;
   total?: number;
+  page?: number;
+  totalPages?: number;
+  hasNext?: boolean;
+  hasPrev?: boolean;
 }
 
 export interface PaginatedResult<T> {
